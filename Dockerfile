@@ -1,5 +1,13 @@
 FROM debian:12-slim
 
+ARG NODE_VERSION=unknown
+ARG NODE_PACKAGE_VERSION
+ARG BUN_VERSION=unknown
+
+LABEL io.github.nweii.node.version="${NODE_VERSION}" \
+      io.github.nweii.bun.version="${BUN_VERSION}" \
+      org.opencontainers.image.version="node${NODE_VERSION}-bun${BUN_VERSION}"
+
 # Install system utilities
 RUN apt-get update -qq && apt-get install -y -qq \
     curl \
@@ -15,11 +23,20 @@ RUN apt-get update -qq && apt-get install -y -qq \
 
 # Install Node.js 22 from NodeSource (cleaner than Debian's apt package)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get install -y nodejs && \
+    if [ -n "${NODE_PACKAGE_VERSION}" ]; then \
+        apt-get install -y "nodejs=${NODE_PACKAGE_VERSION}"; \
+    else \
+        apt-get install -y nodejs; \
+    fi && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Bun to /usr/local so it's available system-wide in PATH
-RUN curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip -o /tmp/bun.zip && \
+RUN if [ "${BUN_VERSION}" = "unknown" ]; then \
+        bun_url="https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip"; \
+    else \
+        bun_url="https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-baseline.zip"; \
+    fi && \
+curl -fsSL "${bun_url}" -o /tmp/bun.zip && \
 unzip /tmp/bun.zip -d /tmp && \
 mv /tmp/bun-linux-x64-baseline/bun /usr/local/bin/bun && \
 chmod +x /usr/local/bin/bun && \

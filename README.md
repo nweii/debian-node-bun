@@ -9,6 +9,12 @@ A minimal Debian 12 base image with Node.js 22+ and Bun pre-installed.
 - [Bun](https://bun.sh) (latest, installed to `/usr/local/bin`)
 - Common utilities: `curl`, `git`, `wget`, `jq`, `unzip`, `openssh-client`, `procps`
 
+## Tag behavior
+
+The published image includes a moving `latest` tag, a moving `node22` tag, and versioned tags like `node22.19.0-bun1.2.8`.
+
+The GitHub Actions workflow checks weekly for the latest Node 22 package from NodeSource and the latest Bun release, but it only publishes a fresh image when one of those versions changes. That keeps `latest` current without creating a new image digest every week when nothing upstream has moved. Pushes to `main` or `master` and manual runs still publish normally.
+
 ## Use as a base image
 
 Build your own container on top of this when you want a Debian-based environment with Node, Bun, and common CLI tools already available.
@@ -32,6 +38,8 @@ services:
     image: ghcr.io/nweii/debian-node-bun:latest
     user: "1000:1000"
 ```
+
+If you want a predictable base, pin a versioned tag instead of `latest`.
 
 You can use that published image as above, or fork this repo and enable GitHub Actions to build and push to your own namespace (`ghcr.io/<your-github-user-or-org>/debian-node-bun:latest`).
 

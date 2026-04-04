@@ -10,6 +10,9 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/debian-node-bun
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -28,10 +31,71 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve upstream versions
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bun_tag="$(curl -fsSL https://api.github.com/repos/oven-sh/bun/releases/latest | jq -r '.tag_name')"
+          bun_version="${bun_tag#bun-v}"
+
+          node_package_version="$(
+            docker run --rm debian:12-slim sh -lc '
+              set -eu
+              apt-get update -qq
+              apt-get install -y -qq bash ca-certificates curl gnupg
+              curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+              apt-cache madison nodejs | awk "/nodesource/ { print \$3; exit }"
+            '
+          )"
+          node_version="${node_package_version%%-*}"
+
+          echo "bun_version=${bun_version}" >> "$GITHUB_OUTPUT"
+          echo "node_package_version=${node_package_version}" >> "$GITHUB_OUTPUT"
+          echo "node_version=${node_version}" >> "$GITHUB_OUTPUT"
+          echo "version_tag=node${node_version}-bun${bun_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Check published image versions
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Triggered by ${{ github.event_name }}, so the image will be published without waiting for an upstream version change." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          docker pull "${IMAGE_NAME}:latest" >/dev/null 2>&1 || true
+
+          current_node="$(docker inspect "${IMAGE_NAME}:latest" --format '{{ index .Config.Labels "io.github.nweii.node.version" }}' 2>/dev/null || true)"
+          current_bun="$(docker inspect "${IMAGE_NAME}:latest" --format '{{ index .Config.Labels "io.github.nweii.bun.version" }}' 2>/dev/null || true)"
+
+          if [[ "${current_node}" == "${{ steps.versions.outputs.node_version }}" && "${current_bun}" == "${{ steps.versions.outputs.bun_version }}" ]]; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Current published image already has Node ${current_node} and Bun ${current_bun}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing Node ${{ steps.versions.outputs.node_version }} and Bun ${{ steps.versions.outputs.bun_version }}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Build and push
+        if: steps.check.outputs.should_build == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          build-args: |
+            NODE_VERSION=${{ steps.versions.outputs.node_version }}
+            NODE_PACKAGE_VERSION=${{ steps.versions.outputs.node_package_version }}
+            BUN_VERSION=${{ steps.versions.outputs.bun_version }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/debian-node-bun:latest
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:node22
+            ${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.version_tag }}
+
+      - name: No publish needed
+        if: steps.check.outputs.should_build != 'true'
+        run: echo "Node and Bun versions are unchanged, so the image was not rebuilt." >> "$GITHUB_STEP_SUMMARY"
