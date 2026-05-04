@@ -17,9 +17,17 @@ RUN apt-get update -qq && apt-get install -y -qq \
     wget \
     jq \
     openssh-client \
+    openssh-server \
     procps \
     gh \
     && rm -rf /var/lib/apt/lists/*
+
+# sshd runtime layout. The server is installed but no service is started by
+# this image — downstream consumers opt in by running /usr/sbin/sshd from
+# their own entrypoint. /run/sshd is required by sshd; /var/empty is its
+# default privsep chroot. Both must exist before sshd is invoked.
+RUN mkdir -p /run/sshd /var/empty && \
+    chmod 0755 /run/sshd /var/empty
 
 # Install Node.js 22 from NodeSource (cleaner than Debian's apt package)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
