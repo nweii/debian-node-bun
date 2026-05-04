@@ -7,7 +7,9 @@ A minimal Debian 12 base image with Node.js 22+ and Bun pre-installed.
 - `debian:12-slim` base
 - Node.js 22 (via [NodeSource](https://github.com/nodesource/distributions))
 - [Bun](https://bun.sh) (latest, installed to `/usr/local/bin`)
-- Common utilities: `curl`, `git`, `wget`, `jq`, `unzip`, `openssh-client`, `procps`
+- Common utilities: `curl`, `git`, `wget`, `jq`, `unzip`, `openssh-client`, `openssh-server`, `procps`
+
+`openssh-server` is installed but not started — downstream consumers opt in by running `/usr/sbin/sshd` from their own entrypoint. `/run/sshd` and `/var/empty` are pre-created so sshd can launch without root, which is the typical pattern when the container itself runs as a non-root user. Logins still require an `/etc/passwd` entry for the target uid; downstream images are responsible for adding a user entry that matches their runtime user (or bind-mounting a replacement `/etc/passwd`).
 
 ## Tag behavior
 
