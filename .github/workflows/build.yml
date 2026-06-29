@@ -52,10 +52,19 @@ jobs:
           )"
           node_version="${node_package_version%%-*}"
 
+          # Resolve the current debian:12-slim digest so base-image security
+          # updates (openssh, curl, glibc, …) trigger a rebuild even when the
+          # Node/Bun versions are unchanged, and so the build is reproducible.
+          docker pull debian:12-slim >/dev/null
+          base_ref="$(docker inspect debian:12-slim --format '{{ index .RepoDigests 0 }}')"
+          base_digest="${base_ref##*@}"
+
           echo "bun_version=${bun_version}" >> "$GITHUB_OUTPUT"
           echo "node_package_version=${node_package_version}" >> "$GITHUB_OUTPUT"
           echo "node_version=${node_version}" >> "$GITHUB_OUTPUT"
           echo "version_tag=node${node_version}-bun${bun_version}" >> "$GITHUB_OUTPUT"
+          echo "base_ref=${base_ref}" >> "$GITHUB_OUTPUT"
+          echo "base_digest=${base_digest}" >> "$GITHUB_OUTPUT"
 
       - name: Check published image versions
         id: check
@@ -73,13 +82,16 @@ jobs:
 
           current_node="$(docker inspect "${IMAGE_NAME}:latest" --format '{{ index .Config.Labels "io.github.nweii.node.version" }}' 2>/dev/null || true)"
           current_bun="$(docker inspect "${IMAGE_NAME}:latest" --format '{{ index .Config.Labels "io.github.nweii.bun.version" }}' 2>/dev/null || true)"
+          current_base="$(docker inspect "${IMAGE_NAME}:latest" --format '{{ index .Config.Labels "io.github.nweii.base.digest" }}' 2>/dev/null || true)"
 
-          if [[ "${current_node}" == "${{ steps.versions.outputs.node_version }}" && "${current_bun}" == "${{ steps.versions.outputs.bun_version }}" ]]; then
+          if [[ "${current_node}" == "${{ steps.versions.outputs.node_version }}" && \
+                "${current_bun}" == "${{ steps.versions.outputs.bun_version }}" && \
+                "${current_base}" == "${{ steps.versions.outputs.base_digest }}" ]]; then
             echo "should_build=false" >> "$GITHUB_OUTPUT"
-            echo "Current published image already has Node ${current_node} and Bun ${current_bun}." >> "$GITHUB_STEP_SUMMARY"
+            echo "Current published image already has Node ${current_node}, Bun ${current_bun}, and base ${current_base}." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "should_build=true" >> "$GITHUB_OUTPUT"
-            echo "Publishing Node ${{ steps.versions.outputs.node_version }} and Bun ${{ steps.versions.outputs.bun_version }}." >> "$GITHUB_STEP_SUMMARY"
+            echo "Publishing Node ${{ steps.versions.outputs.node_version }}, Bun ${{ steps.versions.outputs.bun_version }}, base ${{ steps.versions.outputs.base_digest }}." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Build and push
@@ -89,6 +101,8 @@ jobs:
           context: .
           push: true
           build-args: |
+            BASE_IMAGE=${{ steps.versions.outputs.base_ref }}
+            BASE_DIGEST=${{ steps.versions.outputs.base_digest }}
             NODE_VERSION=${{ steps.versions.outputs.node_version }}
             NODE_PACKAGE_VERSION=${{ steps.versions.outputs.node_package_version }}
             BUN_VERSION=${{ steps.versions.outputs.bun_version }}

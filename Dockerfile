@@ -1,15 +1,21 @@
-FROM debian:12-slim
+# BASE_IMAGE is pinned to a debian:12-slim digest by CI so rebuilds are
+# reproducible and base-image security updates are tracked explicitly.
+ARG BASE_IMAGE=debian:12-slim
+FROM ${BASE_IMAGE}
 
+ARG BASE_DIGEST=unknown
 ARG NODE_VERSION=unknown
 ARG NODE_PACKAGE_VERSION
 ARG BUN_VERSION=unknown
 
 LABEL io.github.nweii.node.version="${NODE_VERSION}" \
       io.github.nweii.bun.version="${BUN_VERSION}" \
+      io.github.nweii.base.digest="${BASE_DIGEST}" \
       org.opencontainers.image.version="node${NODE_VERSION}-bun${BUN_VERSION}"
 
-# Install system utilities
-RUN apt-get update -qq && apt-get install -y -qq \
+# Upgrade preinstalled base packages, then install system utilities. The
+# upgrade picks up CVE fixes for transitive packages not named below.
+RUN apt-get update -qq && apt-get upgrade -y -qq && apt-get install -y -qq \
     curl \
     ca-certificates \
     unzip \
