@@ -32,8 +32,13 @@ RUN apt-get update -qq && apt-get upgrade -y -qq && apt-get install -y -qq \
 # this image — downstream consumers opt in by running /usr/sbin/sshd from
 # their own entrypoint. /run/sshd is required by sshd; /var/empty is its
 # default privsep chroot. Both must exist before sshd is invoked.
+# openssh-server's postinst runs ssh-keygen, so host keys would otherwise be
+# baked into this published image and every consumer would share one SSH
+# identity with its private keys public. Remove them; consumers generate their
+# own with `ssh-keygen -A` before starting sshd.
 RUN mkdir -p /run/sshd /var/empty && \
-    chmod 0755 /run/sshd /var/empty
+    chmod 0755 /run/sshd /var/empty && \
+    rm -f /etc/ssh/ssh_host_*
 
 # Install Node.js 22 from NodeSource (cleaner than Debian's apt package)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \

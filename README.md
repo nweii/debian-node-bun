@@ -11,6 +11,8 @@ A minimal Debian 12 base image with Node.js 22+ and Bun pre-installed.
 
 `openssh-server` is installed but not started — downstream consumers opt in by running `/usr/sbin/sshd` from their own entrypoint. `/run/sshd` and `/var/empty` are pre-created so sshd can launch without root, which is the typical pattern when the container itself runs as a non-root user. Logins still require an `/etc/passwd` entry for the target uid; downstream images are responsible for adding a user entry that matches their runtime user (or bind-mounting a replacement `/etc/passwd`).
 
+This image ships **no SSH host keys**. `openssh-server`'s post-install step generates them at build time, which would publish their private halves inside the image and give every consumer the same SSH identity. They are removed during the build, so an entrypoint that starts sshd must run `ssh-keygen -A` first. Persist the generated keys outside the container if you need a stable fingerprint across image updates.
+
 ## Tag behavior
 
 The published image includes a moving `latest` tag, a moving `node22` tag, and versioned tags like `node22.19.0-bun1.2.8`.
