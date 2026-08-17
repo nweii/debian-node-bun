@@ -26,12 +26,17 @@ RUN apt-get update -qq && apt-get upgrade -y -qq && apt-get install -y -qq \
     openssh-server \
     procps \
     gh \
+    && rm -f /etc/ssh/ssh_host_* \
     && rm -rf /var/lib/apt/lists/*
 
 # sshd runtime layout. The server is installed but no service is started by
 # this image — downstream consumers opt in by running /usr/sbin/sshd from
 # their own entrypoint. /run/sshd is required by sshd; /var/empty is its
 # default privsep chroot. Both must exist before sshd is invoked.
+# No host keys ship in this image: openssh-server's postinst generates them, so
+# they are deleted in the same layer that installs it — a later `rm` would only
+# whiteout the path and leave the private keys extractable from the earlier
+# layer. Consumers run `ssh-keygen -A` before starting sshd.
 RUN mkdir -p /run/sshd /var/empty && \
     chmod 0755 /run/sshd /var/empty
 
