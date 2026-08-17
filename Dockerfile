@@ -36,7 +36,8 @@ RUN apt-get update -qq && apt-get upgrade -y -qq && apt-get install -y -qq \
 # No host keys ship in this image: openssh-server's postinst generates them, so
 # they are deleted in the same layer that installs it — a later `rm` would only
 # whiteout the path and leave the private keys extractable from the earlier
-# layer. Consumers run `ssh-keygen -A` before starting sshd.
+# layer. Consumers generate their own at startup; see README.md for the root
+# and non-root forms.
 RUN mkdir -p /run/sshd /var/empty && \
     chmod 0755 /run/sshd /var/empty
 
