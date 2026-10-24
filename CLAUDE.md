@@ -25,5 +25,6 @@ The GitHub Actions workflow (`.github/workflows/build.yml`) builds and pushes to
 - Node.js installed via NodeSource (not Debian's apt package) for a more current release.
 - Bun installed to `/usr/local` so it's on PATH for all users, including unlisted UIDs. Uses `--baseline` flag to force the AVX2-free build for more flexibility.
 - GitHub CLI (`gh`) installed from the official GitHub apt repo, since it's not in Debian's default repositories.
+- 1Password CLI (`op`) installed from 1Password's official apt repo, so downstream containers can load secrets at startup with `op run` and a service account token. The repo key is stored ASCII-armored (`.asc`), which apt reads directly, so the image needs no `gpg`.
 - `PS1` env var set to show UID instead of `I have no name!` when running as an unlisted user — downstream users can override in their own `.bashrc`.
 - `openssh-server` is installed but no service is started; `/run/sshd` and `/var/empty` are pre-created so a downstream entrypoint can launch `sshd -D` rootlessly. The image deliberately does not add a non-root user to `/etc/passwd` — keeping that downstream-defined preserves support for arbitrary uids. SSH logins do require a passwd entry for the target uid, so downstream images need to add one (typically by appending to `/etc/passwd` at build time or bind-mounting a replacement at runtime).

@@ -69,6 +69,15 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githu
 apt-get update -qq && apt-get install -y -qq gh && \ 
 rm -rf /var/lib/apt/lists/*
 
+# Install the 1Password CLI (requires its own apt repo). Containers use
+# `op run` with a service account token to load secrets at startup. apt reads
+# the ASCII-armored key directly because its filename ends in .asc.
+RUN curl -fsSL https://downloads.1password.com/linux/keys/1password.asc -o /usr/share/keyrings/1password-archive-keyring.asc && \
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.asc] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" > /etc/apt/sources.list.d/1password.list && \
+apt-get update -qq && apt-get install -y -qq 1password-cli && \
+op --version && \
+rm -rf /var/lib/apt/lists/*
+
 # Set a default prompt that shows UID instead of 'I have no name!' when
 # running as an unlisted user. Override PS1 in your own .bashrc as needed.
 ENV PS1='\u@\h:\w\$ '
