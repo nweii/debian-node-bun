@@ -1,0 +1,14 @@
+# Keeps the commit-SHA pins on GitHub Actions current through weekly update PRs.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Wait for a release to age before proposing it, so a hijacked release is likely caught first.
+    cooldown:
+      default-days: 3
+    groups:
+      actions:
+        patterns:
+          - "*"
